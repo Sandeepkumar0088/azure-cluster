@@ -87,31 +87,6 @@ resource "null_resource" "kubeconfig" {
   }
 
   provisioner "local-exec" {
-    command = "rm -rf ~/.kube ; az aks get-credentials --resource-group cluster --name dev ; kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
-  }
-}
-
-resource "null_resource" "ansible" {
-  depends_on = [
-    azurerm_kubernetes_cluster.dev,
-    azurerm_kubernetes_cluster_node_pool.main
-  ]
-  for_each   = var.vms
-
-  provisioner "remote-exec" {
-    connection {
-      type     = "ssh"
-      user     = "sandeep"
-      password = "Sandeep.,@0088"
-      host     = azurerm_linux_virtual_machine.vm[each.key].public_ip_address
-      timeout  = "2m"
-    }
-
-    inline = [
-      "echo 'sandeep' > ~/vault-pass.txt",
-      "chmod 600 ~/vault-pass.txt",
-      "sudo dnf install -y ansible-core npm unzip git",
-      "ansible-pull -i localhost, -U https://github.com/Sandeepkumar0088/azure-ansible.git main.yml -e component=each.key -e env=dev --vault-password-file ~/vault-pass.txt"
-    ]
+    command = "kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
   }
 }
