@@ -11,6 +11,9 @@ resource "azurerm_kubernetes_cluster" "dev" {
     vnet_subnet_id = azurerm_subnet.aks.id
     os_sku         = "AzureLinux3"
   }
+  node_provisioning_profile {
+    mode = "Manual"
+  }
 
   identity {
     type = "SystemAssigned"
