@@ -1,12 +1,12 @@
-resource "azurerm_public_ip" "pip" {
-  name                = "my-pip"
+resource "azurerm_public_ip" "jenkins" {
+  name                = "jenkins"
   location            = azurerm_resource_group.cluster.location
   resource_group_name = azurerm_resource_group.cluster.name
   allocation_method   = "Static"
 }
 
-resource "azurerm_network_security_group" "nsg" {
-  name                = "my-nsg"
+resource "azurerm_network_security_group" "jenkins" {
+  name                = "jenkins"
   location            = azurerm_resource_group.cluster.location
   resource_group_name = azurerm_resource_group.cluster.name
 
@@ -39,9 +39,9 @@ resource "azurerm_network_security_group" "nsg" {
   }
 }
 
-resource "azurerm_network_interface" "nic" {
+resource "azurerm_network_interface" "jenkins" {
 
-  name                = "alma-nic"
+  name                = "jenkins"
   location            = azurerm_resource_group.cluster.location
   resource_group_name = azurerm_resource_group.cluster.name
 
@@ -55,8 +55,8 @@ resource "azurerm_network_interface" "nic" {
 
 resource "azurerm_network_interface_security_group_association" "nsg_assoc" {
 
-  network_interface_id      = azurerm_network_interface.nic.id
-  network_security_group_id = azurerm_network_security_group.nsg.id
+  network_interface_id      = azurerm_network_interface.jenkins.id
+  network_security_group_id = azurerm_network_security_group.jenkins.id
 }
 
 resource "azurerm_linux_virtual_machine" "jenkins" {
@@ -70,7 +70,7 @@ resource "azurerm_linux_virtual_machine" "jenkins" {
   disable_password_authentication = false
 
   network_interface_ids = [
-    azurerm_network_interface.nic.id
+    azurerm_network_interface.jenkins.id
   ]
 
   os_disk {

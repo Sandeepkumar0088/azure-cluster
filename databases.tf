@@ -1,6 +1,6 @@
 resource "azurerm_public_ip" "pip" {
   for_each = var.vms
-  name                = "my-pip-${each.key}"
+  name                = each.key
   location            = azurerm_resource_group.cluster.location
   resource_group_name = azurerm_resource_group.cluster.name
   allocation_method   = "Static"
