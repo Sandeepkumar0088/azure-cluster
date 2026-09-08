@@ -59,7 +59,7 @@ resource "azurerm_network_interface_security_group_association" "nsg_assoc" {
   network_security_group_id = azurerm_network_security_group.nsg.id
 }
 
-resource "azurerm_linux_virtual_machine" "vm" {
+resource "azurerm_linux_virtual_machine" "jenkins" {
   name                = "jenkins"
   resource_group_name = azurerm_resource_group.cluster.name
   location            = azurerm_resource_group.cluster.location
@@ -89,12 +89,12 @@ resource "azurerm_linux_virtual_machine" "vm" {
 resource "null_resource" "jenkins" {
 
   depends_on = [
-    azurerm_linux_virtual_machine.vm
+    azurerm_linux_virtual_machine.jenkins
   ]
 
   connection {
     type     = "ssh"
-    host     = azurerm_public_ip.pip.ip_address
+    host     = azurerm_linux_virtual_machine.jenkins.public_ip_address
     user     = "sandeep"
     password = var.admin_password
   }
