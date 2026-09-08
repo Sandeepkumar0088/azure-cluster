@@ -53,7 +53,7 @@ resource "azurerm_network_interface" "jenkins" {
   }
 }
 
-resource "azurerm_network_interface_security_group_association" "nsg_assoc" {
+resource "azurerm_network_interface_security_group_association" "jenkins" {
 
   network_interface_id      = azurerm_network_interface.jenkins.id
   network_security_group_id = azurerm_network_security_group.jenkins.id
