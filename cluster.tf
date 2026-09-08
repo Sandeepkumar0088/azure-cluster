@@ -6,7 +6,7 @@ resource "azurerm_kubernetes_cluster" "dev" {
 
   default_node_pool {
     name           = "system"
-    node_count     = 2
+    node_count     = 1
     vm_size        = "Standard_D4ls_v6"
     vnet_subnet_id = azurerm_subnet.aks.id
     os_sku         = "AzureLinux3"
@@ -34,7 +34,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "main" {
   vm_size      = "Standard_D4ls_v6"
   vnet_subnet_id = azurerm_subnet.aks.id
 
-  node_count          = 2
+  node_count          = 1
   min_count           = 1
   max_count           = 10
   auto_scaling_enabled = true
