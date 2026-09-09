@@ -147,10 +147,9 @@ resource "azurerm_user_assigned_identity" "external_dns" {
 
 # workload identity
 resource "azurerm_federated_identity_credential" "external_dns" {
-  name                = "external-dns-federated"
-  resource_group_name = azurerm_resource_group.cluster.name
+  name = "external-dns-federated"
 
-  parent_id = azurerm_user_assigned_identity.external_dns.id
+  user_assigned_identity_id = azurerm_user_assigned_identity.external_dns.id
 
   issuer = azurerm_kubernetes_cluster.dev.oidc_issuer_url
 
