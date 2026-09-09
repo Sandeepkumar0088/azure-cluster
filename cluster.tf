@@ -110,9 +110,10 @@ resource "helm_release" "nginx-ingress" {
     null_resource.kubeconfig
   ]
 
-  name  = "ingress"
+  name       = "ingress"
   repository = "https://kubernetes.github.io/ingress-nginx"
-  chart = "ingress-nginx"
+  chart      = "ingress-nginx"
+
   set = [
     {
       name  = "controller.metrics.enabled"
@@ -129,6 +130,14 @@ resource "helm_release" "nginx-ingress" {
     {
       name  = "controller.publishService.enabled"
       value = "true"
+    },
+    {
+      name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-health-probe-request-path"
+      value = "/healthz"
+    },
+    {
+      name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-health-probe-port"
+      value = "10254"
     }
   ]
 }
