@@ -93,14 +93,14 @@ resource "null_resource" "kubeconfig" {
     cluster = timestamp()
   }
 
-  provisioner "local-exec" {
-    command = <<-EOT
-      sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/kubernetes.repo
-      sudo dnf install -y kubectl
-
-      kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-    EOT
-  }
+  # provisioner "local-exec" {
+  #   command = <<-EOT
+  #     sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/kubernetes.repo
+  #     sudo dnf install -y kubectl
+  #
+  #     kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  #   EOT
+  # }
 }
 
 resource "helm_release" "nginx-ingress" {
@@ -124,6 +124,10 @@ resource "helm_release" "nginx-ingress" {
     },
     {
       name  = "controller.podAnnotations.prometheus\\.io/scrape"
+      value = "true"
+    },
+    {
+      name  = "controller.publishService.enabled"
       value = "true"
     }
   ]
@@ -217,6 +221,72 @@ resource "kubernetes_service_account_v1" "external_dns" {
 #   ]
 # }
 
+# resource "helm_release" "external_dns" {
+#   name             = "external-dns"
+#   repository       = "https://kubernetes-sigs.github.io/external-dns/"
+#   chart            = "external-dns"
+#   namespace        = var.external_dns_namespace
+#   create_namespace = false
+#
+#   values = [
+#     yamlencode({
+#       fullnameOverride = "external-dns"
+#
+#       provider = {
+#         name = "azure"
+#       }
+#
+#       serviceAccount = {
+#         create = false
+#         name   = var.external_dns_service_account
+#       }
+#
+#       sources = ["ingress"]
+#
+#       domainFilters = [
+#         var.dns_zone_name
+#       ]
+#
+#       policy = "upsert-only"
+#
+#       registry = "txt"
+#
+#       txtOwnerId = "dev-external-dns"
+#
+#       podLabels = {
+#         "azure.workload.identity/use" = "true"
+#       }
+#     })
+#   ]
+#
+#   depends_on = [
+#     kubernetes_service_account_v1.external_dns
+#   ]
+# }
+data "azurerm_client_config" "current" {}
+
+resource "kubernetes_secret_v1" "external_dns_azure" {
+  metadata {
+    name      = "external-dns-azure"
+    namespace = var.external_dns_namespace
+  }
+
+  data = {
+    "azure.json" = jsonencode({
+      tenantId                     = data.azurerm_client_config.current.tenant_id
+      subscriptionId               = data.azurerm_client_config.current.subscription_id
+      resourceGroup                = "work"
+      useWorkloadIdentityExtension = true
+    })
+  }
+
+  type = "Opaque"
+
+  depends_on = [
+    kubernetes_service_account_v1.external_dns
+  ]
+}
+
 resource "helm_release" "external_dns" {
   name             = "external-dns"
   repository       = "https://kubernetes-sigs.github.io/external-dns/"
@@ -227,6 +297,7 @@ resource "helm_release" "external_dns" {
   values = [
     yamlencode({
       fullnameOverride = "external-dns"
+
 
       provider = {
         name = "azure"
@@ -243,19 +314,37 @@ resource "helm_release" "external_dns" {
         var.dns_zone_name
       ]
 
-      policy = "upsert-only"
-
-      registry = "txt"
-
+      policy     = "upsert-only"
+      registry   = "txt"
       txtOwnerId = "dev-external-dns"
 
       podLabels = {
         "azure.workload.identity/use" = "true"
       }
+
+      extraVolumes = [
+        {
+          name = "azure-config-file"
+
+          secret = {
+            secretName = "external-dns-azure"
+          }
+        }
+      ]
+
+      extraVolumeMounts = [
+        {
+          name      = "azure-config-file"
+          mountPath = "/etc/kubernetes"
+          readOnly  = true
+        }
+      ]
     })
+
   ]
 
   depends_on = [
-    kubernetes_service_account_v1.external_dns
+    kubernetes_service_account_v1.external_dns,
+    kubernetes_secret_v1.external_dns_azure,
   ]
 }
