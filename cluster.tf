@@ -179,12 +179,58 @@ resource "kubernetes_service_account_v1" "external_dns" {
   ]
 }
 
-resource "helm_release" "external_dns" {
-  name       = "external-dns"
-  repository = "https://kubernetes-sigs.github.io/external-dns/"
-  chart      = "external-dns"
-  namespace  = var.external_dns_namespace
+# resource "helm_release" "external_dns" {
+#   name       = "external-dns"
+#   repository = "https://kubernetes-sigs.github.io/external-dns/"
+#   chart      = "external-dns"
+#   namespace  = var.external_dns_namespace
+#
+#   create_namespace = false
+#
+#   values = [
+#     yamlencode({
+#       fullnameOverride = "external-dns"
+#
+#       provider = {
+#         name = "azure"
+#       }
+#
+#       serviceAccount = {
+#         create = false
+#         name   = var.external_dns_service_account
+#       }
+#
+#       sources = [
+#         "ingress"
+#       ]
+#
+#       domainFilters = [
+#         var.dns_zone_name
+#       ]
+#
+#       policy = "upsert-only"
+#
+#       registry = "txt"
+#
+#       txtOwnerId = "dev-external-dns"
+#
+#       podLabels = {
+#         "azure.workload.identity/use" = "true"
+#       }
+#     })
+#   ]
+#
+#   depends_on = [
+#     kubernetes_service_account_v1.external_dns,
+#     azurerm_federated_identity_credential.external_dns
+#   ]
+# }
 
+resource "helm_release" "external_dns" {
+  name             = "external-dns"
+  repository       = "https://kubernetes-sigs.github.io/external-dns/"
+  chart            = "external-dns"
+  namespace        = var.external_dns_namespace
   create_namespace = false
 
   values = [
@@ -200,9 +246,7 @@ resource "helm_release" "external_dns" {
         name   = var.external_dns_service_account
       }
 
-      sources = [
-        "ingress"
-      ]
+      sources = ["ingress"]
 
       domainFilters = [
         var.dns_zone_name
@@ -221,9 +265,6 @@ resource "helm_release" "external_dns" {
   ]
 
   depends_on = [
-    kubernetes_service_account_v1.external_dns,
-    azurerm_federated_identity_credential.external_dns
+    kubernetes_service_account_v1.external_dns
   ]
 }
-
-
