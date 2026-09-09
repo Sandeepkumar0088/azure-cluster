@@ -226,3 +226,5 @@ resource "helm_release" "external_dns" {
     azurerm_federated_identity_credential.external_dns
   ]
 }
+
+

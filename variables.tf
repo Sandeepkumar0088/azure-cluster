@@ -51,3 +51,4 @@ variable "external_dns_hostname" {
 type    = string
 default = "frontend-dev.sandeepkumarpenta.online"
 }
+
