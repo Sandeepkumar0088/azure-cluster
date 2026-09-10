@@ -143,17 +143,20 @@ resource "helm_release" "nginx-ingress" {
 }
 
 #managed identity
-resource "azurerm_user_assigned_identity" "external_dns" {
-  name                = "managed-identity"
-  location            = azurerm_resource_group.cluster.location
-  resource_group_name = azurerm_resource_group.cluster.name
+# resource "azurerm_user_assigned_identity" "external_dns" {
+#   name                = "managed-identity"
+#   location            = azurerm_resource_group.cluster.location
+#   resource_group_name = azurerm_resource_group.cluster.name
+# }
+data "azurerm_user_assigned_identity" "external_dns" {
+  name                = "dns_identity"
+  resource_group_name = "dns"
 }
-
 # workload identity
 resource "azurerm_federated_identity_credential" "external_dns" {
   name = "external-dns-federated"
 
-  user_assigned_identity_id = azurerm_user_assigned_identity.external_dns.id
+  user_assigned_identity_id = data.azurerm_user_assigned_identity.external_dns.id
 
   issuer = azurerm_kubernetes_cluster.dev.oidc_issuer_url
 
@@ -170,7 +173,7 @@ resource "kubernetes_service_account_v1" "external_dns" {
     namespace = var.external_dns_namespace
 
     annotations = {
-      "azure.workload.identity/client-id" = azurerm_user_assigned_identity.external_dns.client_id
+      "azure.workload.identity/client-id" = data.azurerm_user_assigned_identity.external_dns.client_id
     }
 
     labels = {
