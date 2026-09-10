@@ -113,7 +113,8 @@ resource "null_resource" "jenkins" {
       "sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
       "sudo systemctl enable docker",
       "sudo systemctl start docker",
-      "sudo usermod -aG docker jenkins"
+      "sudo usermod -aG docker jenkins",
+      "sudo dnf install maven -y"
     ]
   }
 }
