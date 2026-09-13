@@ -156,7 +156,7 @@ resource "kubernetes_secret_v1" "external_dns_azure" {
     "azure.json" = jsonencode({
       tenantId                     = data.azurerm_client_config.current.tenant_id
       subscriptionId               = data.azurerm_client_config.current.subscription_id
-      resourceGroup                = "work"
+      resourceGroup                = "azure"
       useWorkloadIdentityExtension = true
     })
   }
