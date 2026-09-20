@@ -1,0 +1,41 @@
+---
+daemonset:
+  extraEnvs: []
+  secretMounts: []
+  filebeatConfig:
+    filebeat.yml: |
+      filebeat.inputs:
+      - type: container
+        paths:
+          - /var/log/containers/*_default_*.log
+        processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+        - drop_event:
+            when:
+              or:
+                - equals:
+                    kubernetes.container.name: "shipping"
+      - type: container
+        paths:
+          - /var/log/containers/*default_shipping*.log
+        processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+              - logs_path:
+                  logs_path: "/var/log/containers/"
+        - drop_event:
+            when:
+              not:
+                equals:
+                  kubernetes.container.name: "shipping"
+        multiline.type: pattern
+        multiline.pattern: "^[0-9][0-9][0-9][0-9]"
+        multiline.negate: true
+        multiline.match: after
+      output.logstash:
+        hosts: '172.31.6.85:5044'
