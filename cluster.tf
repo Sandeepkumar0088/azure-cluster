@@ -216,7 +216,7 @@ resource "helm_release" "external_dns" {
   ]
 }
 resource "helm_release" "prometheus-stack" {
-  depends_on  = [ null_resource.kubeconfig, helm_release.external_dns,helm_release.nginx-ingress  ]
+  depends_on  = [ helm_release.external_dns,helm_release.nginx-ingress  ]
 
   name        = "promstack"
   repository  = "https://prometheus-community.github.io/helm-charts"
