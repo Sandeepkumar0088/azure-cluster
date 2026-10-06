@@ -39,3 +39,7 @@ daemonset:
         multiline.match: after
       output.logstash:
         hosts: '172.31.6.85:5044'
+
+
+
+        
