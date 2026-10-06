@@ -59,10 +59,6 @@ resource "azurerm_kubernetes_cluster_node_pool" "main" {
 
 resource "helm_release" "nginx-ingress" {
 
-  depends_on = [
-    null_resource.kubeconfig
-  ]
-
   name       = "ingress"
   repository = "https://kubernetes.github.io/ingress-nginx"
   chart      = "ingress-nginx"
