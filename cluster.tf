@@ -54,18 +54,6 @@ resource "azurerm_kubernetes_cluster_node_pool" "main" {
   }
 }
 
-resource "null_resource" "kubeconfig" {
-
-  depends_on = [
-    azurerm_kubernetes_cluster.dev,
-    azurerm_kubernetes_cluster_node_pool.main
-  ]
-
-  triggers = {
-    cluster = timestamp()
-  }
-
-}
 
 resource "helm_release" "nginx-ingress" {
 
