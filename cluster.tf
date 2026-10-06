@@ -32,8 +32,6 @@ resource "azurerm_kubernetes_cluster" "dev" {
   }
 }
 
-
-
 resource "azurerm_kubernetes_cluster_node_pool" "main" {
   name                  = "main"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.dev.id
