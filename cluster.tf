@@ -1,0 +1,247 @@
+resource "azurerm_kubernetes_cluster" "dev" {
+  name                = "dev"
+  location            = azurerm_resource_group.cluster.location
+  resource_group_name = azurerm_resource_group.cluster.name
+  dns_prefix          = "dev"
+
+  # AKS Workload Identity
+  oidc_issuer_enabled       = true
+  workload_identity_enabled = true
+
+  default_node_pool {
+    name           = "system"
+    node_count     = 1
+    vm_size        = "Standard_D2s_v6"
+    vnet_subnet_id = azurerm_subnet.aks.id
+    os_sku         = "AzureLinux3"
+  }
+
+  node_provisioning_profile {
+    mode = "Manual"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  network_profile {
+    network_plugin = "azure"
+
+    service_cidr   = "10.100.0.0/16"
+    dns_service_ip = "10.100.0.10"
+  }
+}
+
+
+
+resource "azurerm_kubernetes_cluster_node_pool" "main" {
+  name                  = "main"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.dev.id
+
+  vm_size      = "Standard_D2s_v6"
+  # vm_size      = "Standard_D2lds_v6"
+  vnet_subnet_id = azurerm_subnet.aks.id
+
+  node_count          = 1
+  min_count           = 1
+  max_count           = 10
+  auto_scaling_enabled = true
+
+  mode = "User"
+
+  os_sku = "AzureLinux3"
+
+  tags = {
+    Name = "NODE"
+  }
+}
+
+
+resource "helm_release" "nginx-ingress" {
+
+  name       = "ingress"
+  repository = "https://kubernetes.github.io/ingress-nginx"
+  chart      = "ingress-nginx"
+
+  set = [
+    {
+      name  = "controller.metrics.enabled"
+      value = "true"
+    },
+    {
+      name  = "controller.podAnnotations.prometheus\\.io/port"
+      value = "10254"
+    },
+    {
+      name  = "controller.podAnnotations.prometheus\\.io/scrape"
+      value = "true"
+    },
+    {
+      name  = "controller.publishService.enabled"
+      value = "true"
+    },
+    {
+      name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-health-probe-request-path"
+      value = "/healthz"
+    },
+    {
+      name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-health-probe-port"
+      value = "10254"
+    }
+  ]
+}
+
+data "azurerm_user_assigned_identity" "external_dns" {
+  name                = "dns_identity"
+  resource_group_name = "azure"
+}
+# workload identity
+resource "azurerm_federated_identity_credential" "external_dns" {
+  name = "external-dns-federated"
+
+  user_assigned_identity_id = data.azurerm_user_assigned_identity.external_dns.id
+
+  issuer = azurerm_kubernetes_cluster.dev.oidc_issuer_url
+
+  subject = "system:serviceaccount:${var.external_dns_namespace}:${var.external_dns_service_account}"
+
+  audience = [
+    "api://AzureADTokenExchange"
+  ]
+}
+
+resource "kubernetes_service_account_v1" "external_dns" {
+  metadata {
+    name      = var.external_dns_service_account
+    namespace = var.external_dns_namespace
+
+    annotations = {
+      "azure.workload.identity/client-id" = data.azurerm_user_assigned_identity.external_dns.client_id
+    }
+
+    labels = {
+      "azure.workload.identity/use" = "true"
+    }
+  }
+
+  depends_on = [
+    azurerm_federated_identity_credential.external_dns
+  ]
+}
+
+
+data "azurerm_client_config" "current" {}
+
+resource "kubernetes_secret_v1" "external_dns_azure" {
+  metadata {
+    name      = "external-dns-azure"
+    namespace = var.external_dns_namespace
+  }
+
+  data = {
+    "azure.json" = jsonencode({
+      tenantId                     = data.azurerm_client_config.current.tenant_id
+      subscriptionId               = data.azurerm_client_config.current.subscription_id
+      resourceGroup                = "azure"
+      useWorkloadIdentityExtension = true
+    })
+  }
+
+  type = "Opaque"
+
+  depends_on = [
+    kubernetes_service_account_v1.external_dns
+  ]
+}
+
+resource "helm_release" "external_dns" {
+  name             = "external-dns"
+  repository       = "https://kubernetes-sigs.github.io/external-dns/"
+  chart            = "external-dns"
+  namespace        = var.external_dns_namespace
+  create_namespace = false
+
+  values = [
+    yamlencode({
+      fullnameOverride = "external-dns"
+
+
+      provider = {
+        name = "azure"
+      }
+
+      serviceAccount = {
+        create = false
+        name   = var.external_dns_service_account
+      }
+
+      sources = ["ingress"]
+
+      domainFilters = [
+        var.dns_zone_name
+      ]
+
+      policy     = "upsert-only"
+      registry   = "txt"
+      txtOwnerId = "dev-external-dns"
+
+      podLabels = {
+        "azure.workload.identity/use" = "true"
+      }
+
+      extraVolumes = [
+        {
+          name = "azure-config-file"
+
+          secret = {
+            secretName = "external-dns-azure"
+          }
+        }
+      ]
+
+      extraVolumeMounts = [
+        {
+          name      = "azure-config-file"
+          mountPath = "/etc/kubernetes"
+          readOnly  = true
+        }
+      ]
+    })
+
+  ]
+
+  depends_on = [
+    kubernetes_service_account_v1.external_dns,
+    kubernetes_secret_v1.external_dns_azure,
+  ]
+}
+resource "helm_release" "prometheus-stack" {
+  depends_on  = [ null_resource.kubeconfig, helm_release.external_dns,helm_release.nginx-ingress  ]
+
+  name        = "promstack"
+  repository  = "https://prometheus-community.github.io/helm-charts"
+  chart       = "kube-prometheus-stack"
+  values      = [file("prom-stack-values.yml")]
+
+  set = [
+    {
+      name  = "grafana.enabled"
+      value = "false"
+    },
+    {
+      name  = "prometheus.ingress.enabled"
+      value = "true"
+    },
+    {
+      name  = "prometheus.ingress.ingressClassName"
+      value = "nginx"
+    }
+  ]
+  set_list = [
+    {
+      name  = "prometheus.ingress.hosts"
+      value = ["prometheus-dev.sandeepkumarpenta.online"]
+    }
+  ]
+
+}
